@@ -1,13 +1,18 @@
 import { StatusBar } from "expo-status-bar";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  Alert,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { theme } from "./color";
+
+const STORAGE_KEY = "@toDos";
 
 export default function App() {
   const [working, setWorking] = useState(true);
@@ -17,15 +22,42 @@ export default function App() {
   const travel = () => setWorking(false);
   const work = () => setWorking(true);
   const handleInput = (event) => setText(event);
+  const saveToDos = async (toSave) => {
+    const jsonValue = JSON.stringify(toSave);
+    await AsyncStorage.setItem(STORAGE_KEY, jsonValue);
+  };
+  const loadToDos = async () => {
+    const s = await AsyncStorage.getItem(STORAGE_KEY);
+    setToDos(JSON.parse(s));
+  };
+
+  useEffect(() => {
+    loadToDos();
+  }, []);
+
   const addTodo = () => {
     if (text === "") {
       return;
     }
-    const newToDos = Object.assign({}, toDos, {
-      [Date.now()]: { text, work: working },
-    });
+    const newToDos = { ...toDos, [Date.now()]: { text, working } };
     setToDos(newToDos);
+    saveToDos(newToDos);
     setText("");
+  };
+
+  const deleteTodo = (key) => {
+    Alert.alert("목록에서 삭제하시겠습니까?", "다음 계획도 화이팅", [
+      { text: "취소" },
+      {
+        text: "확인",
+        onPress: () => {
+          const newToDos = { ...toDos };
+          delete newToDos[key];
+          setToDos(newToDos);
+          saveToDos(newToDos);
+        },
+      },
+    ]);
   };
 
   return (
@@ -55,6 +87,18 @@ export default function App() {
         placeholder={working ? "할 일 추가하기" : "여행 목적지 추가하기"}
         style={styles.input}
       />
+      <ScrollView>
+        {Object.keys(toDos).map((key) =>
+          toDos[key].working === working ? (
+            <View key={key} style={styles.todo}>
+              <Text style={styles.todoText}>{toDos[key].text}</Text>
+              <TouchableOpacity onPress={() => deleteTodo(key)}>
+                <Text>✅</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -78,9 +122,24 @@ const styles = StyleSheet.create({
   input: {
     backgroundColor: "white",
     paddingHorizontal: 15,
+    paddingVertical: 15,
+    borderRadius: 30,
+    marginTop: 10,
+    marginBottom: 15,
+    fontSize: 18,
+  },
+  todo: {
+    backgroundColor: theme.grey,
+    paddingHorizontal: 20,
     paddingVertical: 20,
     borderRadius: 20,
-    marginTop: 10,
-    fontSize: 18,
+    marginBottom: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  todoText: {
+    color: "white",
+    fontSize: 16,
   },
 });
